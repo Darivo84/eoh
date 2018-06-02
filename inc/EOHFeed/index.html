@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <script src="Js/JQuery/jquery-1.10.2.js" type="text/javascript"></script>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+    <style type="text/css">
+        div.feed-display { color: #122a74; font-family: "Open Sans"; font-size: 14px; max-width: 960px; }
+        div.feed-display div.ticker { padding: 10px 0 5px 0; margin-bottom: 20px; background: #122a74; }
+        div.feed-display div.sens-data { float: left; width: 70%; padding-top: 30px; }
+        div.feed-display div.sens-data span { color: #ffffff; line-height: 26px; float: left; padding: 0 10px 0 10px; background: #122a74; }
+        div.feed-display div.sens-data select { float: left; height: 26px; margin-right: 10px; }
+        div.feed-display div.sens-data input[type='text'] { float: left; height: 22px; padding: 0 5px 0 5px; }
+        div.feed-display div.sens-data input[type='text'] + input[type='text'] { margin: 0 10px 0 -1px; }
+        div.feed-display div.sens-data input[type='button'] { color: #ffffff; height: 26px; padding: 0 15px 0 15px; margin: 0; background: #bf0001; border: none; border-radius: 3px; }
+        div.feed-display div.sens-data table { margin-top: 20px; }
+        div.feed-display table th { color: #ffffff; text-align: left; padding: 10px 8px 10px 8px; background: #122a74; }
+        div.feed-display table th + th { border-left: 2px solid #ffffff; }
+        div.feed-display table td { color: #122a74; padding: 10px 8px 10px 8px; border-top: 2px solid #ffffff; }
+        div.feed-display table td + td { border-left: 2px solid #ffffff; }
+        div.feed-display table tr:nth-child(odd) td { background: #e5e5e5; }
+        div.feed-display table tr:nth-child(even) td { background: #f2f2f2; }
+        div.share-information { float: right; width: 27%; }
+        div.feed-display table button { color: #122a74; width: 100%; height: 100%; margin: 0; background: none; border: none; }
+    </style>
+</head>
+<body>
+
+    <script type="text/javascript">
+
+            $(document).ready(function()
+            {
+            /* Sens */
+            var period = $("#Period");
+            var rangeFrom = $("#RangeFrom");
+            var rangeTo = $("#RangeTo");
+            var filterButton = $("#FilterButton");
+            var shares = $("#Shares");
+
+            // UI binding
+            period.bind("change", function()
+            {
+                rangeFrom.val("From");
+                rangeTo.val("To");
+            });
+
+            rangeFrom.bind("change", function()
+            {
+                period.val("select");
+            });
+
+            rangeTo.bind("change", function()
+            {
+                period.val("select");
+            });
+
+            filterButton.bind("click", function(e)
+            {
+                e.preventDefault();
+
+                var query = {};
+
+                if (period.val() != "select")
+                {
+                    var to_date = new Date();
+                    var from_date = new Date();
+
+                    if (period.val() == "yesterday")
+                        from_date.setDate(from_date.getDate() - 1);
+                    else if (period.val() == "one_week")
+                        from_date.setDate(from_date.getDate() - 7);
+                    else if (period.val() == "one_month")
+                        from_date.setDate(from_date.getDate() - 31);
+                    else if (period.val() == "three_months")
+                        from_date.setDate(from_date.getDate() - 93);
+                    else if (period.val() == "six_months")
+                        from_date.setDate(from_date.getDate() - 186);
+                    else if (period.val() == "one_year")
+                        from_date.setDate(from_date.getDate() - 365);
+                    else if (period.val() == "five_years")
+                        from_date.setDate(from_date.getDate() - 1825);
+
+                    query = {
+                        code: 627,
+                        period_range: "Period",
+                        from_todate: from_date.getFullYear() + "-" + ("0" + (from_date.getMonth() + 1)).slice(-2) + "-" + ("0" + from_date.getDate()).slice(-2),
+                        from_date: from_date.getFullYear() + "-" + ("0" + (from_date.getMonth() + 1)).slice(-2) + "-" + ("0" + from_date.getDate()).slice(-2),
+                        to_date: to_date.getFullYear() + "-" + ("0" + (to_date.getMonth() + 1)).slice(-2) + "-" + ("0" + to_date.getDate()).slice(-2),
+                    };
+                }
+                else
+                {
+                    query = {
+                        code: 627,
+                        period_range: "Range",
+                        from_todate: "2012-5-30",
+                        from_date: "2012-5-30",
+                        to_date: "2017-6-29"
+                    }
+                }
+
+                $.ajax({
+                    url: "sens.php",
+                    type: "POST",
+                    dataType: "html",
+                    data: query
+                })
+                .done(function(data)
+                {
+                    renderSens(data)
+                })
+                .fail(function()
+                {
+                })
+                .always(function()
+                {
+                });
+            });
+
+            // Share
+            $.ajax({
+                url: "share.php",
+                type: "GET",
+                dataType: "xml"
+            })
+            .done(function(data)
+            {
+                renderShare(data)
+            })
+            .fail(function()
+            {
+            })
+            .always(function()
+            {
+            });
+
+            // Private methods
+            function renderSens(data)
+            {
+                var needle = "&quot;";
+                var table = $(data).filter("#myTable").get(0);
+                var rows = [];
+                var results = $("#Results");
+                var resultsHtml = "";
+
+                if ($(table).children("tbody").children("tr").length == 1)
+                    resultsHtml = "No results for the specified period";
+                else
+                {
+                    $(table).children("tbody").children("tr").each(function(i)
+                    {
+                        var date = $(this).children("td").eq(0).text().substring(0, 10);
+                        var html = $(this).children("td").eq(1).html();
+                        var title = $(html).children("a").text();
+                        var uid = html.substr(html.indexOf(needle) + needle.length);
+                        uid = uid.substring(0, uid.indexOf(needle));
+
+                        rows.push([date, title, uid]);
+                    });
+
+                    resultsHtml = "<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\">" +
+                            "<thead><tr><th>Publication Date</th><th>Title</th></thead>" +
+                            "<tbody>";
+
+                    for (var i = 0; i < rows.length; i++)
+                        resultsHtml += "<tr><td>" + rows[i][0] + "</td><td><button data-uid=\"" + rows[i][2] + "\">" + rows[i][1] + "</button></td></tr>";
+
+                    resultsHtml += "</tbody></table>";
+                }
+
+                results.html(resultsHtml);
+
+                results.find("button").bind("click", function(e)
+                {
+                    e.preventDefault();
+
+                    window.open("http://eoh_2017.hosted.inet.co.za/inews/news/story/" + $(this).data("uid") + "/withrelated/1", "", "width=1000,height=600");
+                });
+            }
+
+            function renderShare(data)
+            {
+                var close = $(data).find("close").text();
+                var previousLastTrade = $(data).find("ptrade").text();
+                var bid = $(data).find("bid").text();
+
+                var ask = $(data).find("close").text();
+
+                var high = $(data).find("hi").text();
+                var low = $(data).find("lo").text();
+                var oneYearHigh = $(data).find("hi12val").text();
+                var oneYearLow = $(data).find("lo12val").text();
+
+                var move = $(data).find("close").text();
+
+                var percentageMove = $(data).find("perc").text();
+                var numberOfTrades = $(data).find("num_trd").text();
+                var volume = $(data).find("vol_trd").text();
+
+                var vwap = $(data).find("close").text();
+
+                var valueTraded = $(data).find("val_trd").text();
+                var priceEarningsRatio = $(data).find("pearn_y").text();
+                var _yield = $(data).find("eyld").text();
+                var dividendYield = $(data).find("dyld").text();
+
+                var marketCap = $(data).find("close").text();
+
+                console.log(data);
+
+                var sharesHtml = "<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\">" +
+                    "<thead><tr><th>EOH</th><th>Currency ZAR cents</th></thead>" +
+                    "<tbody>" +
+                    "<tr><td>Close</td><td>" + close + "</td>" +
+                    "<tr><td>Prev. Last Trade</td><td>" + previousLastTrade + "</td>" +
+                    "<tr><td>Bid</td><td>" + bid + "</td>" +
+                    "<tr><td>Ask</td><td>" + ask + "</td>" +
+                    "<tr><td>High*</td><td>" + high + "</td>" +
+                    "<tr><td>Low*</td><td>" + low + "</td>" +
+                    "<tr><td>1 Year High*</td><td>" + oneYearHigh + "</td>" +
+                    "<tr><td>1 Year Low*</td><td>" + oneYearLow + "</td>" +
+                    "<tr><td>Move</td><td>" + move + "</td>" +
+                    "<tr><td>% Move</td><td>" + percentageMove + "</td>" +
+                    "<tr><td>No of Trades</td><td>" + numberOfTrades + "</td>" +
+                    "<tr><td>Volume</td><td>" + volume + "</td>" +
+                    "<tr><td>VWAP*</td><td>" + vwap + "</td>" +
+                    "<tr><td>Value Traded*</td><td>" + valueTraded + "</td>" +
+                    "<tr><td>Price/Earnings Ratio*</td><td>" + priceEarningsRatio + "</td>" +
+                    "<tr><td>Yield*</td><td>" + _yield + "</td>" +
+                    "<tr><td>Dividend Yield*</td><td>" + dividendYield + "</td>" +
+                    "<tr><td>Market Cap*</td><td>" + marketCap + "</td>" +
+                    "</tbody></table>";
+
+                shares.html(sharesHtml);
+            }
+        });
+
+    </script>
+
+
+
+</body>
+</html>
